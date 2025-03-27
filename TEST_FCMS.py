@@ -3,6 +3,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from rdkit import Chem
 from rdkit.Chem import AllChem, DataStructs, Draw
+from rdkit.Chem import rdFMCS  # Import the MCS module
 from sklearn.manifold import TSNE
 from rdkit.Chem.Scaffolds import MurckoScaffold
 from sklearn.cluster import AgglomerativeClustering
@@ -42,6 +43,33 @@ def compute_similarity_matrix(fingerprints):
 def extract_scaffolds(molecules):
     scaffolds = [MurckoScaffold.GetScaffoldForMol(mol) for mol in molecules]
     return scaffolds
+
+# Find Maximum Common Substructure (MCS)
+def find_mcs(molecules):
+    # Perform MCS search on the molecules
+    mcs_result = rdFMCS.FindMCS(molecules)
+
+    # Check if an MCS was found
+    if mcs_result.canceled:
+        print("MCS search was canceled.")
+        return None  # No common substructure found
+    
+    if mcs_result.numAtoms == 0:
+        print("No common substructure found.")
+        return None  # No common substructure found
+    # Get the MCS molecule
+    mcs_mol = Chem.MolFromSmarts(mcs_result.smartsString)
+    return mcs_mol
+
+# Highlight the MCS on the molecules
+def highlight_mcs(molecules, mcs_mol):
+    # Generate a list of molecule images with the MCS highlighted
+    highlighted_mols = []
+    for mol in molecules:
+        match = mol.GetSubstructMatch(mcs_mol)  # Find the MCS in the molecule
+        img = Draw.MolToImage(mol, highlightAtoms=match)  # Highlight the atoms in the MCS
+        highlighted_mols.append(img)
+    return highlighted_mols
 
 # Cluster scaffolds based on similarity
 def cluster_scaffolds(similarity_matrix, n_clusters=5):
@@ -106,7 +134,7 @@ def main():
     smiles_file_path = "/Users/jakewood/Downloads/UTCOMLS/UTCOMLS Research/Dr. Robert Smith/KimSin/JW_Sim_Calc/test_SMILES.txt"  # SMILES file
     drug_names_file_path = "/Users/jakewood/Downloads/UTCOMLS/UTCOMLS Research/Dr. Robert Smith/KimSin/JW_Sim_Calc/test_drug_names.txt"  # File containing drug names
     
-    output_path = "/Users/jakewood/Downloads/UTCOMLS/UTCOMLS Research/Dr. Robert Smith/KimSin/JW_Sim_Calc/Output"  # Directory where images will be saved
+    output_path = "/Users/jakewood/Downloads/UTCOMLS/UTCOMLS Research/Dr. Robert Smith/KimSin/JW_Sim_Calc/Test_OutPut"  # Directory where images will be saved
     os.makedirs(output_path, exist_ok=True)  # Create directory if it doesn't exist
     
     # Load SMILES and drug names
@@ -118,6 +146,16 @@ def main():
     similarity_matrix = compute_similarity_matrix(fingerprints)
     scaffolds = extract_scaffolds(molecules)
     
+    # Find the MCS
+    mcs_mol = find_mcs(molecules)
+    
+    # Highlight the MCS on the molecules
+    highlighted_mols = highlight_mcs(molecules, mcs_mol)
+    
+    # Save highlighted molecules with MCS
+    for idx, img in enumerate(highlighted_mols):
+        img.save(os.path.join(output_path, f"highlighted_mcs_mol_{idx}.png"))
+
     # Cluster scaffolds based on similarity
     clusters = cluster_scaffolds(similarity_matrix, n_clusters=5)
 
