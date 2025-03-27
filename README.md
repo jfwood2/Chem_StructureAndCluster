@@ -1,4 +1,4 @@
-# JW
+# README
 
 Chem_StructureAndCluster
 
