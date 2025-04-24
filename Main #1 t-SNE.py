@@ -2,6 +2,7 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
+from adjustText import adjust_text
 from rdkit import Chem
 from rdkit.Chem import AllChem, DataStructs, Draw
 from sklearn.manifold import TSNE
@@ -30,7 +31,7 @@ def smiles_to_molecules(smiles_list):
     return [Chem.MolFromSmiles(smiles) for smiles in smiles_list]
 
 
-# Compute Morgan fingerprints
+# Compute fingerprints
 def compute_fingerprints(molecules, radius=2, n_bits=1024):
     return [AllChem.GetMorganFingerprintAsBitVect(mol, radius, nBits=n_bits) for mol in molecules]
 
@@ -94,7 +95,8 @@ def plot_heatmap(sim_matrix, row_labels, output_path, col_labels=None, filename=
 
 
 # t-SNE plot
-def plot_tsne_with_similarity(fingerprints, labels, output_path, filename="tsne_colored_by_similarity.png"):
+def plot_tsne_with_similarity(fingerprints, labels, output_path, filename="tsne_colored_by_similarity.png", drugs_to_label=None):
+    dot_size = 600
     # Convert fingerprints to array if needed
     fp_array = np.array([list(fp) for fp in fingerprints])
     
@@ -112,15 +114,24 @@ def plot_tsne_with_similarity(fingerprints, labels, output_path, filename="tsne_
     
     # Normalize distances to a 0-1 scale for coloring
     norm_distances = (avg_distances - np.min(avg_distances)) / (np.max(avg_distances) - np.min(avg_distances))
-    
-    # Create the plot
+
+    # Set the size of the dots in the t-sne plot
+    dot_size = 600
+
+    # Create the plot and point settings like size and alpha
     plt.figure(figsize=(12, 9))
-    scatter = plt.scatter(embeddings[:, 0], embeddings[:, 1], c=norm_distances, cmap='Blues', s=80, alpha=0.7)
+    scatter = plt.scatter(embeddings[:, 0], embeddings[:, 1], c=norm_distances, cmap='Blues', s=dot_size, alpha=0.9)
     
+     # Comment out the following lines if you want to annotate points with labels
     # Annotate points with the corresponding labels and the +.5 offset puts the labels above the points
-    for i, txt in enumerate(labels):
-        plt.annotate(txt, (embeddings[i, 0], embeddings[i, 1] + 0.25 ), fontsize=4, ha='center', va='bottom', alpha=0.7)
-    
+    offset = 0.035 * dot_size
+    if drugs_to_label:
+        texts = []
+        for i, txt in enumerate(labels):
+            if txt in drugs_to_label:
+                texts.append(
+                    plt.text(embeddings[i, 0], embeddings[i, 1] + offset, txt, fontsize=8, ha='center', va='bottom')
+                )
 
     # Title t-SNE plot
     plt.title("t-SNE Visualization")
@@ -151,6 +162,10 @@ def main():
     smiles_file_2 = "/Users/jakewood/Downloads/UTCOMLS/UTCOMLS Research/Dr. Robert Smith/KimSin/JW_Sim_Calc/test_5Day_SMILES.txt"
     names_file_2 = "/Users/jakewood/Downloads/UTCOMLS/UTCOMLS Research/Dr. Robert Smith/KimSin/JW_Sim_Calc/test_5Day_drug_names.txt"
     
+    # === Optional: drugs to label in t-SNE ===
+    drugs_to_label = ["Neratinib", "Pelitinib"]
+
+
     #Where to save the output!!
     output_path = "/Users/jakewood/Downloads/UTCOMLS/UTCOMLS Research/Dr. Robert Smith/KimSin/JW_Sim_Calc/output"
     
@@ -168,7 +183,7 @@ def main():
     plot_heatmap(sim_matrix, names_1, output_path)
 
     # Optional: t-SNE just for group 1
-    plot_tsne_with_similarity(fps_1, names_1, output_path, filename="tsne_2Day.png")
+    plot_tsne_with_similarity(fps_1, names_1, output_path, filename="tsne_2Day.png", drugs_to_label=drugs_to_label)
     
     
     # commented out the clustering part for now, but you can uncomment it if needed
@@ -195,7 +210,7 @@ def main():
     plot_heatmap(sim_matrix, names_2, output_path, filename="similarity_heatmap_5Day.png", title="Tanimoto Similarity Heatmap - 5 Day")
 
     # Optional: t-SNE just for group 2
-    plot_tsne_with_similarity(fps_2, names_2, output_path, filename="tsne_5Day.png")
+    plot_tsne_with_similarity(fps_2, names_2, output_path, filename="tsne_5Day.png", drugs_to_label=drugs_to_label)
 
     # === Cross-group comparison ===
     cross_sim_matrix = compute_cross_similarity_matrix(fps_1, fps_2)
@@ -210,7 +225,7 @@ def main():
     # Optional: t-SNE of both sets
     combined_fps = fps_1 + fps_2
     combined_names = names_1 + names_2
-    plot_tsne_with_similarity(combined_fps, combined_names, output_path, filename="tsne_combined.png")
+    plot_tsne_with_similarity(combined_fps, combined_names, output_path, filename="tsne_combined.png", drugs_to_label=drugs_to_label)
 
     #Optional: End commented block for two groups  
     
